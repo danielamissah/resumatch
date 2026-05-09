@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from models.schemas import HealthResponse
-from routers import analyze_router, scrape_router
+from routers import analyze_router, scrape_router, export_router
 
 load_dotenv()
 
@@ -27,6 +27,7 @@ ALLOWED_ORIGINS = [
 app.add_middleware(CORSMiddleware, allow_origins=[o for o in ALLOWED_ORIGINS if o], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(analyze_router)
 app.include_router(scrape_router)
+app.include_router(export_router)
 
 @app.get("/health", response_model=HealthResponse, tags=["health"])
 async def health_check():

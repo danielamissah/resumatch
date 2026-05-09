@@ -9,6 +9,8 @@ import BulletComparison from "@/components/BulletComparison";
 
 type Tab = "score" | "gaps" | "bullets";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function ResultsPage() {
   const params = useParams();
   const router = useRouter();
@@ -16,6 +18,7 @@ export default function ResultsPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("score");
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const cached = sessionStorage.getItem(`analysis_${analysisId}`);
@@ -27,6 +30,29 @@ export default function ResultsPage() {
       .catch(() => router.push("/"))
       .finally(() => setLoading(false));
   }, [analysisId, router]);
+
+  const handleDownloadDocx = async () => {
+    setDownloading(true);
+    try {
+      const response = await fetch(`${API_BASE}/export/${analysisId}/docx`);
+      if (!response.ok) throw new Error("Export failed");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="(.+)"/);
+      a.download = match ? match[1] : "ResuMatch_Redline.docx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Download failed. Make sure the backend is running.");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -44,8 +70,8 @@ export default function ResultsPage() {
   const verdictColor = match_score.verdict === "Strong Match" ? "#4ade80" : match_score.verdict === "Partial Match" ? "#fb923c" : "#f87171";
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "score", label: "Fit Score" },
-    { id: "gaps", label: `Skill Gaps (${gap_analysis.missing_skills.length})` },
+    { id: "score",   label: "Fit Score" },
+    { id: "gaps",    label: `Skill Gaps (${gap_analysis.missing_skills.length})` },
     { id: "bullets", label: `Bullet Rewrites (${bullet_rewrites.total_bullets})` },
   ];
 
@@ -55,17 +81,31 @@ export default function ResultsPage() {
 
       {/* Header */}
       <header style={{ borderBottom: "1px solid #222", position: "sticky", top: 0, background: "#0a0a0a", zIndex: 10 }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={() => router.push("/")} style={{ background: "none", border: "none", color: "#a0a09a", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <button onClick={() => router.push("/")} style={{ background: "none", border: "none", color: "#a0a09a", cursor: "pointer", fontSize: 14, flexShrink: 0 }}>
             ← New Analysis
           </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <span style={{ fontSize: 13, color: "#555550" }}>
               {job.title || "Analysis"}{job.company ? ` · ${job.company}` : ""}
             </span>
             <span style={{ fontSize: 11, fontFamily: "monospace", background: "rgba(245,166,35,0.12)", color: "#f5a623", padding: "3px 8px", borderRadius: 6 }}>
               {result.processing_time_ms}ms
             </span>
+            {/* Download Word button */}
+            <button
+              onClick={handleDownloadDocx}
+              disabled={downloading}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "1px solid #2a2a2a", background: downloading ? "#1a1a1a" : "#161616", color: downloading ? "#555550" : "#f5f5f0", fontSize: 12, fontWeight: 500, cursor: downloading ? "not-allowed" : "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+              onMouseEnter={(e) => { if (!downloading) e.currentTarget.style.borderColor = "#f5a623"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#2a2a2a"; }}
+            >
+              {downloading ? (
+                <><span style={{ width: 12, height: 12, border: "1.5px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} /> Exporting...</>
+              ) : (
+                <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Redline .docx</>
+              )}
+            </button>
           </div>
         </div>
       </header>
@@ -109,8 +149,8 @@ export default function ResultsPage() {
         </div>
 
         {/* Tab content */}
-        {activeTab === "score" && <ScoreCard matchScore={match_score} />}
-        {activeTab === "gaps" && <GapAnalysis gapAnalysis={gap_analysis} />}
+        {activeTab === "score"   && <ScoreCard matchScore={match_score} />}
+        {activeTab === "gaps"    && <GapAnalysis gapAnalysis={gap_analysis} result={result} />}
         {activeTab === "bullets" && <BulletComparison bulletRewrites={bullet_rewrites} />}
       </div>
     </div>
