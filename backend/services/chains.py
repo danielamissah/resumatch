@@ -32,22 +32,31 @@ def format_rag_context(chunks: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
-async def call_groq(client: AsyncGroq, system_prompt: str, user_prompt: str, temperature: float = 0.3) -> dict:
-    """Call Groq with JSON mode. Returns parsed dict."""
-    response = await client.chat.completions.create(
-        model=MODEL,
-        temperature=temperature,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-    )
-    content = response.choices[0].message.content
-    return json.loads(content)
+async def call_groq(client: AsyncGroq, system_prompt: str, user_prompt: str, temperature: float = 0.3, retries: int = 3) -> dict:
+    for attempt in range(retries):
+        try:
+            response = await client.chat.completions.create(
+                model=MODEL,
+                temperature=temperature,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ]
+            )
+            return json.loads(response.choices[0].message.content)
+        except RateLimitError:
+            if attempt < retries - 1:
+                wait = 5 * (attempt + 1)  # 5s, 10s, 15s
+                print(f"Rate limit hit, waiting {wait}s before retry {attempt + 1}...")
+                await asyncio.sleep(wait)
+            else:
+                raise RuntimeError("Groq API rate limit exceeded after multiple retries.")
+        except Exception as e:
+            raise RuntimeError(f"Error calling Groq API: {e}")
 
 
-# ─── Chain 1: Match Scorer ────────────────────────────────────────────────────
+#  Chain 1: Match Scorer 
 
 SCORER_SYSTEM = """You are an expert technical recruiter. Score how well a resume matches a job description.
 Return ONLY a JSON object with this exact structure:
@@ -72,12 +81,12 @@ async def run_scorer_chain(resume: ParsedResume, jd: JobDescription, jd_id: str,
     for section in resume.sections[:6]:
         chunks = retrieve_for_section(section, jd_id)
         section_blocks.append(
-            f"=== {section.title} ===\n{section.content[:600]}\n\n"
+            f"=== {section.title} ===\n{section.content[:300]}\n\n"
             f"--- RELEVANT JD CONTEXT ---\n{format_rag_context(chunks)}"
         )
 
     user_prompt = f"""JOB: {jd.title} at {jd.company}
-JD SUMMARY: {jd.raw_text[:1000]}
+JD SUMMARY: {jd.raw_text[:600]}
 REQUIRED SKILLS: {', '.join(jd.required_skills)}
 CANDIDATE SKILLS: {', '.join(resume.skills)}
 
@@ -102,7 +111,7 @@ Score this resume against this job."""
     )
 
 
-# ─── Chain 2: Gap Analyser ────────────────────────────────────────────────────
+#  Chain 2: Gap Analyser 
 
 GAP_SYSTEM = """You are an expert career coach. Identify skill gaps between a resume and a job description.
 Return ONLY a JSON object with this exact structure:
@@ -132,7 +141,7 @@ async def run_gap_analysis_chain(resume: ParsedResume, jd: JobDescription, jd_id
 FULL JD: {jd.raw_text[:2000]}
 REQUIRED SKILLS: {chr(10).join(f'- {s}' for s in jd.required_skills)}
 RESPONSIBILITIES: {chr(10).join(f'- {r}' for r in jd.responsibilities[:8])}
-CANDIDATE RESUME: {resume.raw_text[:1500]}
+CANDIDATE RESUME: {resume.raw_text[:800]}
 CANDIDATE SKILLS: {', '.join(resume.skills)}
 RAG CONTEXT: {format_rag_context(chunks)}
 
@@ -155,7 +164,7 @@ Identify what this candidate is missing for this specific role."""
     )
 
 
-# ─── Chain 3: Bullet Rewriter ─────────────────────────────────────────────────
+#  Chain 3: Bullet Rewriter 
 
 REWRITER_SYSTEM = """You are an expert resume writer. Rewrite resume bullets to better match a job description.
 Never invent experience. Incorporate real JD keywords naturally.
@@ -194,7 +203,7 @@ Rewrite this single bullet. Return JSON with one item in the rewrites array."""
     return BulletRewrite(original=bullet, rewritten=bullet, keywords_added=[], explanation="Could not generate rewrite", section=section_name)
 
 
-async def run_bullet_rewriter_chain(resume: ParsedResume, jd: JobDescription, jd_id: str, client: AsyncGroq, max_bullets: int = 10) -> BulletRewrites:
+async def run_bullet_rewriter_chain(resume: ParsedResume, jd: JobDescription, jd_id: str, client: AsyncGroq, max_bullets: int = 6) -> BulletRewrites:
     bullet_section_pairs = []
     sections_covered = set()
     for section in resume.sections:
@@ -213,12 +222,13 @@ async def run_bullet_rewriter_chain(resume: ParsedResume, jd: JobDescription, jd
     return BulletRewrites(rewrites=valid, total_bullets=len(valid), sections_covered=list(sections_covered))
 
 
-# ─── Orchestrator ─────────────────────────────────────────────────────────────
+#  Orchestrator 
 
 async def run_all_chains(resume: ParsedResume, jd: JobDescription, jd_id: str, client: AsyncGroq):
-    """Run all three chains in parallel."""
-    return await asyncio.gather(
-        run_scorer_chain(resume, jd, jd_id, client),
-        run_gap_analysis_chain(resume, jd, jd_id, client),
-        run_bullet_rewriter_chain(resume, jd, jd_id, client),
-    )
+    """Run chains sequentially to stay within Groq free tier TPM limits."""
+    match_score = await run_scorer_chain(resume, jd, jd_id, client)
+    await asyncio.sleep(3)  # small buffer between chains
+    gap_analysis = await run_gap_analysis_chain(resume, jd, jd_id, client)
+    await asyncio.sleep(3)
+    bullet_rewrites = await run_bullet_rewriter_chain(resume, jd, jd_id, client)
+    return match_score, gap_analysis, bullet_rewrites
