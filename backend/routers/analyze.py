@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from openai import AsyncOpenAI
+from groq import AsyncGroq
 import os
 
 from models.schemas import AnalyzeRequest, AnalysisResult, AnalysisStatus, InputFormat
@@ -16,44 +16,57 @@ router = APIRouter(prefix="/analyze", tags=["analyze"])
 _analysis_store: dict[str, AnalysisResult] = {}
 
 
-def get_openai_client() -> AsyncOpenAI:
-    api_key = os.getenv("OPENAI_API_KEY")
+def get_groq_client() -> AsyncGroq:
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
-    return AsyncOpenAI(api_key=api_key)
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY not configured in .env")
+    return AsyncGroq(api_key=api_key)
+
+
+async def _run_analysis(resume, jd) -> AnalysisResult:
+    """Shared analysis logic for both text and file endpoints."""
+    start = time.time()
+    client = get_groq_client()
+
+    # Embed JD — synchronous, local, free
+    jd_id = embed_and_store_jd(jd)
+
+    # Run all three chains in parallel against Groq
+    match_score, gap_analysis, bullet_rewrites = await run_all_chains(
+        resume=resume, jd=jd, jd_id=jd_id, client=client
+    )
+
+    analysis_id = str(uuid.uuid4())
+    result = AnalysisResult(
+        analysis_id=analysis_id,
+        status=AnalysisStatus.COMPLETE,
+        resume=resume, job=jd,
+        match_score=match_score,
+        gap_analysis=gap_analysis,
+        bullet_rewrites=bullet_rewrites,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        processing_time_ms=int((time.time() - start) * 1000)
+    )
+    _analysis_store[analysis_id] = result
+    return result
 
 
 @router.post("/text", response_model=AnalysisResult)
 async def analyze_text(request: AnalyzeRequest) -> AnalysisResult:
     if not request.job_description_text and not request.job_url:
-        raise HTTPException(status_code=422, detail="Either job_description_text or job_url must be provided")
-
-    start_time = time.time()
-    openai_client = get_openai_client()
+        raise HTTPException(status_code=422, detail="Provide either job_description_text or job_url")
 
     try:
         resume = parse_resume(request.resume_text, InputFormat.TEXT)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=f"Resume parsing failed: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Resume parsing failed: {e}")
 
     try:
         jd = await scrape_job_description(request.job_url) if request.job_url else parse_job_description_text(request.job_description_text)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=f"Job description error: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Job description error: {e}")
 
-    jd_id = await embed_and_store_jd(jd, openai_client)
-    match_score, gap_analysis, bullet_rewrites = await run_all_chains(resume=resume, jd=jd, jd_id=jd_id, openai_client=openai_client)
-
-    analysis_id = str(uuid.uuid4())
-    result = AnalysisResult(
-        analysis_id=analysis_id, status=AnalysisStatus.COMPLETE,
-        resume=resume, job=jd, match_score=match_score,
-        gap_analysis=gap_analysis, bullet_rewrites=bullet_rewrites,
-        created_at=datetime.now(timezone.utc).isoformat(),
-        processing_time_ms=int((time.time() - start_time) * 1000)
-    )
-    _analysis_store[analysis_id] = result
-    return result
+    return await _run_analysis(resume, jd)
 
 
 @router.post("/file", response_model=AnalysisResult)
@@ -63,7 +76,7 @@ async def analyze_file(
     job_url: str = Form(default=None),
 ) -> AnalysisResult:
     if not job_description_text and not job_url:
-        raise HTTPException(status_code=422, detail="Either job_description_text or job_url must be provided")
+        raise HTTPException(status_code=422, detail="Provide either job_description_text or job_url")
 
     filename = resume_file.filename or ""
     if filename.lower().endswith(".pdf"):
@@ -71,38 +84,23 @@ async def analyze_file(
     elif filename.lower().endswith(".docx"):
         file_format = InputFormat.DOCX
     else:
-        raise HTTPException(status_code=422, detail="Unsupported file format. Please upload a PDF or DOCX file.")
+        raise HTTPException(status_code=422, detail="Upload a PDF or DOCX file.")
 
-    start_time = time.time()
-    openai_client = get_openai_client()
     file_bytes = await resume_file.read()
-
     if len(file_bytes) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large. Maximum size is 5MB.")
+        raise HTTPException(status_code=413, detail="File too large. Max 5MB.")
 
     try:
         resume = parse_resume(file_bytes, file_format)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=f"Resume parsing failed: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Resume parsing failed: {e}")
 
     try:
         jd = await scrape_job_description(job_url) if job_url else parse_job_description_text(job_description_text)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=f"Job description error: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Job description error: {e}")
 
-    jd_id = await embed_and_store_jd(jd, openai_client)
-    match_score, gap_analysis, bullet_rewrites = await run_all_chains(resume=resume, jd=jd, jd_id=jd_id, openai_client=openai_client)
-
-    analysis_id = str(uuid.uuid4())
-    result = AnalysisResult(
-        analysis_id=analysis_id, status=AnalysisStatus.COMPLETE,
-        resume=resume, job=jd, match_score=match_score,
-        gap_analysis=gap_analysis, bullet_rewrites=bullet_rewrites,
-        created_at=datetime.now(timezone.utc).isoformat(),
-        processing_time_ms=int((time.time() - start_time) * 1000)
-    )
-    _analysis_store[analysis_id] = result
-    return result
+    return await _run_analysis(resume, jd)
 
 
 @router.get("/{analysis_id}", response_model=AnalysisResult)

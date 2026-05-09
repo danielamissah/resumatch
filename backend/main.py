@@ -10,7 +10,7 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    required_vars = ["OPENAI_API_KEY"]
+    required_vars = ["GROQ_API_KEY"]
     missing = [v for v in required_vars if not os.getenv(v)]
     if missing:
         raise RuntimeError(f"Missing required env vars: {', '.join(missing)}")
