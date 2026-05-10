@@ -170,7 +170,7 @@ jobs:
 
     environment:
       name: production
-      url: ${{ secrets.FRONTEND_URL }}
+      url: https://resumatch.vercel.app
 
     steps:
       - name: Checkout
