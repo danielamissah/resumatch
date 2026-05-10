@@ -14,17 +14,27 @@ async def lifespan(app: FastAPI):
     missing = [v for v in required_vars if not os.getenv(v)]
     if missing:
         raise RuntimeError(f"Missing required env vars: {', '.join(missing)}")
-    print("✓ ResuMatch backend started")
+    print("ResuMatch backend started")
     yield
 
 app = FastAPI(title="ResuMatch API", version="1.0.0", lifespan=lifespan)
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://resumatch.vercel.app",
+    "https://resumatch-dka.vercel.app",
     os.getenv("FRONTEND_URL", ""),
 ]
-app.add_middleware(CORSMiddleware, allow_origins=[o for o in ALLOWED_ORIGINS if o], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "https://resumatch-dka.vercel.app",
+        os.getenv("FRONTEND_URL", ""),
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(analyze_router)
 app.include_router(scrape_router)
 app.include_router(export_router)
