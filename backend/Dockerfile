@@ -1,4 +1,4 @@
-# ── Stage 1: Builder ──────────────────────────────────────────────────────────
+# ── Stage 1: Builder 
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
@@ -13,7 +13,7 @@ RUN pip install --upgrade pip && \
     pip install --prefix=/install --no-cache-dir -r requirements.txt
 
 
-# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+# ── Stage 2: Runtime 
 FROM python:3.11-slim AS runtime
 
 RUN groupadd --gid 1001 appgroup && \
@@ -46,4 +46,4 @@ RUN if [ "$CI" != "true" ]; then \
     python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"; \
     fi
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"]
