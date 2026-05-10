@@ -11,17 +11,18 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - TOKENIZERS_PARALLELISM=false
+      - PORT=8000
     volumes:
       # Persist ChromaDB vector store across restarts
       - chroma_data:/app/chroma_db
-      # Persist model cache so it's not re-downloaded
+      # Persist sentence-transformers model cache
       - model_cache:/app/.cache
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 90s
     restart: unless-stopped
 
   frontend:
@@ -29,7 +30,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://localhost:8000
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     container_name: resumatch-frontend
     ports:
       - "3000:3000"

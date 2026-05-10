@@ -12,10 +12,11 @@ env:
   REGISTRY: ghcr.io
   BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/resumatch-backend
   FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/resumatch-frontend
+  DOCKERHUB_IMAGE: danielamissah/resumatch
 
 jobs:
 
-  # ── Job 1: Backend Tests — runs on every push ──────────────────────────────
+  # ── Job 1: Backend Tests — every push ─────────────────────────────────────
   test-backend:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -50,7 +51,7 @@ jobs:
           pytest tests/ -v --tb=short
 
 
-  # ── Job 2: Frontend Type Check — runs on every push ────────────────────────
+  # ── Job 2: Frontend Type Check — every push ───────────────────────────────
   typecheck-frontend:
     name: Frontend Type Check
     runs-on: ubuntu-latest
@@ -76,12 +77,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      # - name: Lint
-      #   run: npm run lint --if-present
 
-
-  # ── Job 3: Build & Push Docker Images — only on version tags ───────────────
-  # Trigger by running: git tag v1.0.0 && git push --tags
+  # ── Job 3: Build & Push Docker Images — tags only ─────────────────────────
+  # Trigger: git tag v1.0.0 && git push --tags
   build-and-push:
     name: Build & Push Images
     runs-on: ubuntu-latest
@@ -113,10 +111,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Extract metadata for backend
+      - name: Extract metadata for backend (ghcr.io)
         id: meta-backend
         uses: docker/metadata-action@v5
         with:
@@ -126,7 +130,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Extract metadata for frontend
+      - name: Extract metadata for frontend (ghcr.io)
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
@@ -136,20 +140,23 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Build & push backend image
+      - name: Build & push backend to ghcr.io + Docker Hub
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ${{ steps.meta-backend.outputs.tags }}
+          tags: |
+            ${{ steps.meta-backend.outputs.tags }}
+            ${{ env.DOCKERHUB_IMAGE }}:latest
+            ${{ env.DOCKERHUB_IMAGE }}:${{ github.ref_name }}
           labels: ${{ steps.meta-backend.outputs.labels }}
           build-args: |
             CI=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build & push frontend image
+      - name: Build & push frontend to ghcr.io
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -163,7 +170,7 @@ jobs:
           cache-to: type=gha,mode=max
 
 
-  # ── Job 4: Deploy — only on version tags ───────────────────────────────────
+  # ── Job 4: Deploy — tags only ─────────────────────────────────────────────
   deploy:
     name: Deploy to Railway + Vercel
     runs-on: ubuntu-latest
@@ -173,7 +180,7 @@ jobs:
 
     environment:
       name: production
-      url: https://resumatch.vercel.app
+      url: https://resumatch-dka.vercel.app
 
     steps:
       - name: Checkout
