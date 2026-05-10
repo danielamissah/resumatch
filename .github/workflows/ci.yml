@@ -39,19 +39,13 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov httpx
 
-      - name: Run tests with coverage
+      - name: Run tests
         env:
-          GROQ_API_KEY: test-key-not-real
+          GROQ_API_KEY: test-key
           TOKENIZERS_PARALLELISM: "false"
           CHROMA_PERSIST_DIR: /tmp/test_chroma
         run: |
-          pytest tests/ -v \
-            --cov=. \
-            --cov-omit="tests/*,venv/*" \
-            --cov-report=term-missing \
-            --cov-report=xml \
-            --tb=short
-
+          pytest tests/ -v --tb=short
       - name: Upload coverage report
         uses: codecov/codecov-action@v4
         if: always()
