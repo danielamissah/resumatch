@@ -10,4 +10,4 @@ chroma_db/
 .mypy_cache/
 tests/
 *.egg-info/
-.cache/
+.cache/venv/
