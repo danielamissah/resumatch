@@ -153,8 +153,9 @@ jobs:
       - name: Deploy backend to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        working-directory: backend
         run: |
-          railway up --service resumatch-backend --detach
+          railway up --detach
 
       - name: Deploy frontend to Vercel
         uses: amondnet/vercel-action@v25
