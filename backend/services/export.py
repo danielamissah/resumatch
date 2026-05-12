@@ -5,7 +5,7 @@ Generates a .docx file that visually mimics Word track changes:
 - Original bullets: red + strikethrough
 - Rewritten bullets: green + underline
 
-This is a redline document, not true OOXML track changes.
+This is a redline document.
 It opens perfectly in Word, Google Docs, and LibreOffice
 and is visually identical to what reviewers see in review mode.
 """
