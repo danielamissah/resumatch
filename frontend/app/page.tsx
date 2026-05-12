@@ -148,7 +148,7 @@ export default function HomePage() {
             <div style={{ width: 32, height: 32, borderRadius: 8, background: t.teal, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>R</div>
             <span style={{ fontWeight: 600, fontSize: 15 }}>ResuMatch</span>
           </div>
-          <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 6, background: t.bgElevated, color: t.textMuted, border: `1px solid ${t.border}`, fontFamily: "monospace" }}>v1.0 beta</span>
+          {/* <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 6, background: t.bgElevated, color: t.textMuted, border: `1px solid ${t.border}`, fontFamily: "monospace" }}>v1.0 beta</span> */}
         </div>
       </header>
 
