@@ -1,7 +1,6 @@
 """
 Analysis Chains
 ---------------
-Uses Groq (free) instead of OpenAI for generation.
 Embeddings are handled by sentence-transformers (local, free).
 All chains are now synchronous for embeddings, async for Groq calls.
 """

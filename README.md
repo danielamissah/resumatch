@@ -1,18 +1,17 @@
-
 # ResuMatch
 
 > **RAG-powered resume tailoring — score your fit, identify skill gaps, and get bullet rewrites tailored to any specific job.**
 
-🔗 **Live**
+**Live**
 [resumatch-dka.vercel.app](https://resumatch-dka.vercel.app/)
 
-🐳 **Docker**
+**Docker**
 `docker pull danielamissah/resumatch:latest`
 
-📄 **API Docs**
+**API Docs**
 [resumatch.up.railway.app/docs](https://resumatch.up.railway.app/docs)
 
-⭐ **GitHub**
+**GitHub**
 [github.com/danielamissah/resumatch](https://github.com/danielamissah/resumatch)
 
 ---
@@ -325,7 +324,7 @@ resumatch/
 │   ├── pytest.ini
 │   ├── .env.example
 │   ├── models/
-│   │   └── schemas.py          All Pydantic models
+│   │   └── schemas.py      
 │   ├── routers/
 │   │   ├── analyze.py          POST /analyze/text · POST /analyze/file
 │   │   ├── scrape.py           POST /scrape
@@ -357,41 +356,13 @@ resumatch/
 
 ---
 
-## Roadmap
+## Roadmap (Future Version)
 
 * [ ] Supabase persistence — save and retrieve past analyses
 * [ ] Auth — email magic link
-* [ ] Cover letter generator — one Groq call, high perceived value
+* [ ] Cover letter generator
 * [ ] Interview question predictor — based on JD and skill gaps
 * [ ] LinkedIn headline suggester
-* [ ] Stripe — waitlist to paid tier
-* [ ] Kubernetes deployment — when traffic justifies orchestration
-
----
-
-## About
-
-**Daniel Kwame Amissah** is an ML Research Engineer based in Hamburg, Germany, with 5 peer-reviewed publications and hands-on experience building production AI systems and full-stack web applications.
-
-His research spans computer vision (Vision Transformers for age-invariant face recognition), healthcare ML (DMA-WOA optimisation for PCOS diagnosis), cybersecurity (Bitcoin ransomware detection with dimensionality reduction), and plant disease classification. He has presented at the International Conference on Artificial Intelligence and Networking (ICAIN 2025, Delhi).
-
-On the engineering side he builds RAG pipelines, multi-agent LLM systems, and full-stack web applications — and deploys them to production. ResuMatch was built to solve a real problem he faced personally: tailoring a resume for every application while job hunting in Germany on a tight timeline with the Opportunity Card.
-
-**Published research:**
-
-* DMA-WOA for PCOS Diagnosis — Applied AI Letters, 2026
-* Early Blight Detection in Tomatoes with Modified MobileNet — Scientific Reports, 2026
-* Vision Transformer for Age-Invariant Face Recognition — Applied AI Letters, 2025
-* Bitcoin Ransomware Detection with Incremental PCA and UMAP — Security and Privacy, 2025
-* AI and Healthcare: PCOS Diagnosis — Operations Research Forum, 2025
-
-**Links:**
-
-* Portfolio: [danielkwameamissah.com](https://www.danielkwameamissah.com/)
-* GitHub: [github.com/danielamissah](https://github.com/danielamissah)
-* HuggingFace: [huggingface.co/dkamissah](https://huggingface.co/dkamissah)
-* LinkedIn: [linkedin.com/in/danielkamissah](https://www.linkedin.com/in/danielkamissah/)
-* Google Scholar: [scholar.google.com/citations?user=6XPh5FkAAAAJ](https://scholar.google.com/citations?user=6XPh5FkAAAAJ)
 
 ---
 
