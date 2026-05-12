@@ -324,7 +324,7 @@ resumatch/
 │   ├── pytest.ini
 │   ├── .env.example
 │   ├── models/
-│   │   └── schemas.py      
+│   │   └── schemas.py    
 │   ├── routers/
 │   │   ├── analyze.py          POST /analyze/text · POST /analyze/file
 │   │   ├── scrape.py           POST /scrape
@@ -360,7 +360,6 @@ resumatch/
 
 * [ ] Supabase persistence — save and retrieve past analyses
 * [ ] Auth — email magic link
-* [ ] Cover letter generator
 * [ ] Interview question predictor — based on JD and skill gaps
 * [ ] LinkedIn headline suggester
 
