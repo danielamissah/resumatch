@@ -12,6 +12,7 @@ groq==0.13.0
 # CPU-only PyTorch — cuts image size from ~2.8GB to ~800MB
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.2.0+cpu
+numpy==1.26.4
 sentence-transformers==3.3.1
 
 chromadb==0.5.23
